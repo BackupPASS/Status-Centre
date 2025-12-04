@@ -33,8 +33,9 @@
         refreshBtn.textContent = 'Refreshing...';
         refreshBtn.disabled = true;
         setTimeout(() => {
-          refreshBtn.textContent = 'Refresh (Visual)';
+          refreshBtn.textContent = 'Refresh';
           refreshBtn.disabled = false;
         }, 800);
       });
+
     }
