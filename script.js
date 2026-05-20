@@ -27,15 +27,95 @@
       });
     }
 
-    const refreshBtn = document.getElementById('refresh-btn');
-    if (refreshBtn){
-      refreshBtn.addEventListener('click', () => {
-        refreshBtn.textContent = 'Refreshing...';
-        refreshBtn.disabled = true;
-        setTimeout(() => {
-          refreshBtn.textContent = 'Refresh';
-          refreshBtn.disabled = false;
-        }, 800);
-      });
+const refreshBtn = document.getElementById('refresh-btn');
+const refreshStatus = document.getElementById('refresh-status');
 
+const REMOTE_URL = "https://github.com/BackupPASS/Status-Centre/raw/refs/heads/main/index.html";
+
+let timeLeft = 60;
+let lastRefreshSeconds = 0;
+let lastHash = null;
+
+// simple hash function (fast + enough for change detection)
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
+
+function formatLastRefreshed(seconds) {
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  return `${Math.floor(seconds / 60)}m ago`;
+}
+
+async function checkForUpdate(source = "auto") {
+  try {
+
+    const res = await fetch(REMOTE_URL, { cache: "no-store" });
+    const text = await res.text();
+
+    const newHash = simpleHash(text);
+
+    // first run setup
+    if (lastHash === null) {
+      lastHash = newHash;
     }
+
+    // if changed → reload page
+    if (newHash !== lastHash) {
+      refreshStatus.textContent = "Update detected... reloading";
+      setTimeout(() => location.reload(), 800);
+      return;
+    }
+
+    lastHash = newHash;
+
+  } catch (err) {
+    console.warn("Update check failed:", err);
+  }
+}
+
+function updateUI() {
+  refreshStatus.textContent =
+    `Auto refresh in ${timeLeft}s | Last refreshed: ${formatLastRefreshed(lastRefreshSeconds)}`;
+}
+
+// manual refresh button
+refreshBtn.addEventListener('click', async () => {
+  refreshBtn.disabled = true;
+  refreshBtn.textContent = "Checking...";
+
+  await checkForUpdate("manual");
+
+  timeLeft = 60;
+  lastRefreshSeconds = 0;
+
+  refreshBtn.disabled = false;
+  refreshBtn.textContent = "Refresh";
+
+  updateUI();
+});
+
+// main loop
+setInterval(() => {
+
+  timeLeft--;
+  lastRefreshSeconds++;
+
+  if (timeLeft <= 0) {
+    timeLeft = 60;
+    lastRefreshSeconds = 0;
+    checkForUpdate("auto");
+  }
+
+  updateUI();
+
+}, 1000);
+
+// initial run
+updateUI();
+checkForUpdate("initial");
